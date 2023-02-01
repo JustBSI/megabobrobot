@@ -1,10 +1,11 @@
-token = '5947531992:AAFvRjvYGmBA1WGzS5wgfWmaLIOUnmXplF4'
+token = open('token.txt').read()
 import telebot
 import sqlite3
 
 con = sqlite3.connect("people.db", check_same_thread=False)
 cursor = con.cursor()
 
+# new table creation
 with con:
     data = con.execute("SELECT count(*) FROM sqlite_master WHERE TYPE='table' and NAME='people'")
     for row in data:
@@ -18,13 +19,15 @@ state = dict()
 bot = telebot.TeleBot(token)
 
 
+# reaction on "start" command
 @bot.message_handler(commands=['start'])
 def start(message):
-    keyboard = telebot.types.ReplyKeyboardMarkup(True)
+    keyboard = telebot.types.ReplyKeyboardMarkup(True)  # open keyboard
     keyboard.row('Показать ориентацию', 'Изменить ориентацию', 'Удалить ориентацию')
     bot.send_message(message.from_user.id, "Привет, " + message.from_user.first_name + "!", reply_markup=keyboard)
 
 
+# reaction on keyboard buttons
 @bot.message_handler(content_types=['text'])
 def get_state(message):
     if message.text == 'Изменить ориентацию':
