@@ -19,7 +19,6 @@ state = dict()
 bot = telebot.TeleBot(token)
 
 
-# reaction on "start" command
 @bot.message_handler(commands=['start'])
 def start(message):
     keyboard = telebot.types.ReplyKeyboardMarkup(True)  # open keyboard
@@ -27,29 +26,42 @@ def start(message):
     bot.send_message(message.from_user.id, "Привет, " + message.from_user.first_name + "!", reply_markup=keyboard)
 
 
-# reaction on keyboard buttons
+def change_state(message):
+    keyboard = telebot.types.ReplyKeyboardMarkup(True)
+    keyboard.row('Гей', 'Не гей')
+    bot.send_message(message.from_user.id, "Укажите ориентацию:", reply_markup=keyboard)
+    bot.register_next_step_handler(message, set_state)
+
+
+def delete_state(message):
+    cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+    if cursor.fetchone() is None:
+        bot.send_message(message.from_user.id, "Я о Вас и так ничего не знаю!")
+    else:
+        cursor.execute("DELETE FROM people WHERE user_id=(?)", [message.from_user.id])
+        con.commit()
+        bot.send_message(message.from_user.id, "Информация о Вашей ориентации удалена!")
+
+
+def show_state(message):
+    cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+    if cursor.fetchone() is None:
+        bot.send_message(message.from_user.id, "Вы ещё не указали, гей Вы или нет!")
+    else:
+        cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+        bot.send_message(message.from_user.id, "Ваша ориентация: " + ''.join(cursor.fetchone()))
+
+
+actions = {
+    'Изменить ориентацию': change_state,
+    'Удалить ориентацию': delete_state,
+    'Показать ориентацию': show_state
+}
+
+
 @bot.message_handler(content_types=['text'])
 def get_state(message):
-    if message.text == 'Изменить ориентацию':
-        keyboard = telebot.types.ReplyKeyboardMarkup(True)
-        keyboard.row('Гей', 'Не гей')
-        bot.send_message(message.from_user.id, "Укажите ориентацию:", reply_markup=keyboard)
-        bot.register_next_step_handler(message, set_state)
-    elif message.text == 'Удалить ориентацию':
-        cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-        if cursor.fetchone() is None:
-            bot.send_message(message.from_user.id, "Я о Вас и так ничего не знаю!")
-        else:
-            cursor.execute("DELETE FROM people WHERE user_id=(?)", [message.from_user.id])
-            con.commit()
-            bot.send_message(message.from_user.id, "Информация о Вашей ориентации удалена!")
-    elif message.text == 'Показать ориентацию':
-        cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-        if cursor.fetchone() is None:
-            bot.send_message(message.from_user.id, "Вы ещё не указали, гей Вы или нет!")
-        else:
-            cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-            bot.send_message(message.from_user.id, "Ваша ориентация: " + ''.join(cursor.fetchone()))
+    actions[message.text](message)
 
 
 def set_state(message):
