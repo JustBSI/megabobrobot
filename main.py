@@ -2,6 +2,7 @@ token = open('token.txt').read()
 import telebot
 import sqlite3
 from datetime import datetime
+from telebot import types
 current_datetime = datetime.now()
 bot = telebot.TeleBot(token)
 people = sqlite3.connect("people.db", check_same_thread=False)
@@ -17,7 +18,7 @@ with people:
     for row in data:
         if row[0] == 0:
             people_cursor.execute("""CREATE TABLE people
-                            (user_id INT PRIMARY KEY AUTOINCREMENT,
+                            (user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                             state NCHAR)
                             """)
 
@@ -44,7 +45,7 @@ def start(message):
 
 
 def add_note(message):
-    bot.send_message(message.from_user.id, "Напишите заметку:")
+    bot.send_message(message.from_user.id, "Напишите заметку:", reply_markup=types.ReplyKeyboardRemove())
     bot.register_next_step_handler(message, write_note)
 
 
@@ -81,7 +82,7 @@ def show_state(message):
     keyboard.row('Меню')
     people_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
     if people_cursor.fetchone() is None:
-        bot.send_message(message.from_user.id, "Вы ещё не указали, больны Вы или нет!")
+        bot.send_message(message.from_user.id, "Вы ещё не указали, больны Вы или нет!", reply_markup=keyboard)
     else:
         people_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
         bot.send_message(message.from_user.id, "Ваше состояние: " + ''.join(people_cursor.fetchone()),
