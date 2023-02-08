@@ -5,34 +5,28 @@ from datetime import datetime
 from telebot import types
 current_datetime = datetime.now()
 bot = telebot.TeleBot(token)
-people = sqlite3.connect("people.db", check_same_thread=False)
-people_cursor = people.cursor()
-
-notes = sqlite3.connect("notes.db", check_same_thread=False)
-notes_cursor = notes.cursor()
+database = sqlite3.connect("database.db", check_same_thread=False)
+database_cursor = database.cursor()
 
 
-# new people table creation
-with people:
-    data = people.execute("SELECT count(*) FROM sqlite_master WHERE TYPE='table' and NAME='people'")
-    for row in data:
-        if row[0] == 0:
-            people_cursor.execute("""CREATE TABLE people
-                            (user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            state NCHAR)
-                            """)
+# new database and table creation function
+def create_table(name, request):
+    with database:
+        data = database.execute(f"SELECT count(*) FROM sqlite_master WHERE TYPE='table' and NAME='{name}'")
+        for row in data:
+            if row[0] == 0:
+                database_cursor.execute(f"""CREATE TABLE {name} ({request})""")
 
-# new notes table creation
-with notes:
-    data = notes.execute("SELECT count(*) FROM sqlite_master WHERE TYPE='table' and NAME='notes'")
-    for row in data:
-        if row[0] == 0:
-            notes_cursor.execute("""CREATE TABLE notes
-                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id INT,
-                            datetime DATETIME,
-                            note NCHAR)
-                            """)
+
+create_table("people",
+             """user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+             state NCHAR""")
+
+create_table("notes",
+             """id INTEGER PRIMARY KEY AUTOINCREMENT,
+             user_id INT,
+             datetime DATETIME,
+             note NCHAR""")
 
 
 @bot.message_handler(commands=['start'])
@@ -52,9 +46,9 @@ def add_note(message):
 def write_note(message):
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row('Меню')
-    notes_cursor.execute("INSERT INTO notes (user_id, datetime, note) VALUES (?, ?, ?)",
+    database_cursor.execute("INSERT INTO notes (user_id, datetime, note) VALUES (?, ?, ?)",
                          (message.from_user.id, current_datetime, message.text))
-    notes.commit()
+    database.commit()
     bot.send_message(message.from_user.id, "Заметка сохранена!", reply_markup=keyboard)
 
 
@@ -68,24 +62,24 @@ def change_state(message):
 def delete_state(message):
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row('Меню')
-    people_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-    if people_cursor.fetchone() is None:
+    database_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+    if database_cursor.fetchone() is None:
         bot.send_message(message.from_user.id, "Я о Вас и так ничего не знаю!", reply_markup=keyboard)
     else:
-        people_cursor.execute("DELETE FROM people WHERE user_id=(?)", [message.from_user.id])
-        people.commit()
+        database_cursor.execute("DELETE FROM people WHERE user_id=(?)", [message.from_user.id])
+        database.commit()
         bot.send_message(message.from_user.id, "Информация о Вашем состоянии удалена!", reply_markup=keyboard)
 
 
 def show_state(message):
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row('Меню')
-    people_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-    if people_cursor.fetchone() is None:
+    database_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+    if database_cursor.fetchone() is None:
         bot.send_message(message.from_user.id, "Вы ещё не указали, больны Вы или нет!", reply_markup=keyboard)
     else:
-        people_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-        bot.send_message(message.from_user.id, "Ваше состояние: " + ''.join(people_cursor.fetchone()),
+        database_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+        bot.send_message(message.from_user.id, "Ваше состояние: " + ''.join(database_cursor.fetchone()),
                          reply_markup=keyboard)
 
 
@@ -106,13 +100,13 @@ def action(message):
 def set_state(message):
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.row('Меню')
-    people_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
-    if people_cursor.fetchone() is None:
-        people_cursor.execute("INSERT INTO people (user_id, state) VALUES (?, ?)", (message.from_user.id, message.text))
-        people.commit()
+    database_cursor.execute("SELECT state FROM people WHERE user_id=(?)", [message.from_user.id])
+    if database_cursor.fetchone() is None:
+        database_cursor.execute("INSERT INTO people (user_id, state) VALUES (?, ?)", (message.from_user.id, message.text))
+        database.commit()
     else:
-        people_cursor.execute("UPDATE people SET state =(?) WHERE user_id=(?)", (message.text, message.from_user.id))
-        people.commit()
+        database_cursor.execute("UPDATE people SET state =(?) WHERE user_id=(?)", (message.text, message.from_user.id))
+        database.commit()
     bot.send_message(message.from_user.id, "Отлично! Теперь Ваше состояние: " + message.text, reply_markup=keyboard)
     bot.register_next_step_handler(message, start)
 
